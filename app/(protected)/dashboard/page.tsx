@@ -4,16 +4,16 @@ import { useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, Clock3, Loader2, RefreshCw, School, UserMinus, UsersRound } from "lucide-react";
 import { api } from "@/lib/api";
 import { DashboardSummary } from "@/lib/types";
-import { thaiDate, today } from "@/lib/utils";
+import { attendanceToday, thaiDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 
-const empty: DashboardSummary = { date: today(), totalStudents: 0, present: 0, late: 0, leave: 0, absent: 0, recorded: 0, notRecorded: 0 };
+const empty: DashboardSummary = { date: attendanceToday(), totalStudents: 0, present: 0, late: 0, leave: 0, absent: 0, recorded: 0, notRecorded: 0 };
 
 export default function DashboardPage() {
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(attendanceToday());
   const [data, setData] = useState(empty);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

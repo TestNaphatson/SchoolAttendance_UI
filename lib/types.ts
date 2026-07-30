@@ -20,6 +20,7 @@ export type Student = {
   isActive: boolean;
   status: AttendanceStatus;
   remark?: string | null;
+  attendanceTime?: string | null;
 };
 
 export type StudentPage = {
@@ -28,4 +29,26 @@ export type StudentPage = {
   totalItems: number;
   totalPages: number;
   items: Student[];
+};
+
+export type LeaveType = "Sick" | "Personal";
+export type LeaveApprovalStatus = "Pending" | "Approved" | "Rejected";
+
+export type AttendanceLog = {
+  id: number;
+  attendanceDate: string;
+  studentCode: string;
+  firstName: string;
+  lastName: string;
+  classroom: string;
+  status: AttendanceStatus;
+  checkedInAt?: string | null;
+  remark?: string | null;
+  leaveType?: LeaveType | null;
+  leaveApprovalStatus?: LeaveApprovalStatus | null;
+};
+
+export type AttendanceLogResponse = {
+  items: AttendanceLog[];
+  totalItems: number;
 };

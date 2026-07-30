@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FileText, Loader2, Search, UserCheck, UserMinus } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import { AttendanceStatus, Student, StudentPage } from "@/lib/types";
-import { thaiDate, today } from "@/lib/utils";
+import { attendanceToday, thaiDate } from "@/lib/utils";
 import { StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ const statuses: { value: Exclude<AttendanceStatus, "NotRecorded">; label: string
 ];
 
 export default function AttendancePage() {
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(attendanceToday());
   const [students, setStudents] = useState<Student[]>([]);
   const [studentId, setStudentId] = useState<number | null>(null);
   const [status, setStatus] = useState<Exclude<AttendanceStatus, "NotRecorded">>("Present");

@@ -8,6 +8,18 @@ export class ApiError extends Error {
 
 type ApiOptions = RequestInit & { auth?: boolean };
 
+function getApiErrorMessage(body: Record<string, unknown>) {
+  if (typeof body.message === "string") return body.message;
+  if (typeof body.title === "string" && body.errors && typeof body.errors === "object") {
+    const validationMessages = Object.values(body.errors as Record<string, unknown>)
+      .flatMap((value) => Array.isArray(value) ? value : [])
+      .filter((value): value is string => typeof value === "string");
+    if (validationMessages.length) return validationMessages.join(" ");
+    return body.title;
+  }
+  return "เกิดข้อผิดพลาด กรุณาลองใหม่";
+}
+
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
@@ -29,7 +41,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
       clearSession();
       window.location.href = "/login";
     }
-    throw new ApiError(body.message ?? "เกิดข้อผิดพลาด กรุณาลองใหม่", response.status, body);
+    throw new ApiError(getApiErrorMessage(body), response.status, body);
   }
   return body as T;
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BarChart3, Bell, ClipboardCheck, GraduationCap, KeyRound, LogOut, Menu, Search, UsersRound, X } from "lucide-react";
+import { BarChart3, Bell, ClipboardCheck, FileSpreadsheet, GraduationCap, KeyRound, LogOut, Menu, Search, UsersRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clearSession, getUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ const links = [
   { href: "/students", label: "รายชื่อนักเรียน", icon: UsersRound },
   { href: "/student-accounts", label: "บัญชีนักเรียน", icon: KeyRound },
   { href: "/attendance", label: "บันทึกการเข้าเรียน", icon: ClipboardCheck },
+  { href: "/attendance-logs", label: "ประวัติและส่งออก CSV", icon: FileSpreadsheet },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

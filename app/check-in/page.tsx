@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CalendarDays, Check, CheckCircle2, Clock3, GraduationCap, Loader2, LocateFixed, LogOut, MapPin, Navigation, ShieldCheck } from "lucide-react";
+import { AlertCircle, CalendarDays, Check, CheckCircle2, Clock3, FileText, GraduationCap, Loader2, LocateFixed, LogOut, MapPin, Navigation, Send, ShieldCheck } from "lucide-react";
 import { api, clearSession, getUser } from "@/lib/api";
+import { LeaveType } from "@/lib/types";
 import { thaiDate, today } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 
 type CheckInData = {
   date: string;
@@ -23,7 +26,8 @@ type CheckInData = {
   checkedIn: boolean;
   attendance: null | {
     id: number;
-    status: "Present" | "Late" | "Absent";
+    status: "Present" | "Late" | "Absent" | "Leave";
+    leaveType?: LeaveType | null;
     remark?: string;
     createdAt: string;
   };
@@ -45,7 +49,12 @@ export default function CheckInPage() {
   const [position, setPosition] = useState<Position | null>(null);
   const [locationLoading, setLocationLoading] = useState(true);
   const [locationError, setLocationError] = useState("");
-  const user = typeof window !== "undefined" ? getUser() : {};
+  const [requestTopic, setRequestTopic] = useState("");
+  const [leaveType, setLeaveType] = useState<LeaveType>("Sick");
+  const [leaveReason, setLeaveReason] = useState("");
+  const [leaveSaving, setLeaveSaving] = useState(false);
+  const [leaveMessage, setLeaveMessage] = useState("");
+  const [user, setUser] = useState<ReturnType<typeof getUser>>({});
 
   async function load() {
     setLoading(true);
@@ -92,6 +101,7 @@ export default function CheckInPage() {
   }, []);
 
   useEffect(() => {
+    setUser(getUser());
     void load();
     requestLocation();
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -111,6 +121,34 @@ export default function CheckInPage() {
     }
   }
 
+  async function submitLeaveRequest(event: React.FormEvent) {
+    event.preventDefault();
+    if (!leaveReason.trim()) {
+      setError("กรุณาระบุเหตุผลการลา");
+      return;
+    }
+    setLeaveSaving(true);
+    setError("");
+    setLeaveMessage("");
+    try {
+      const result = await api<{ message?: string }>("/StudentCheckIn/leave", {
+        method: "POST",
+        body: JSON.stringify({
+          leaveType,
+          reason: leaveReason.trim(),
+        }),
+      });
+      setLeaveMessage(result.message || "บันทึกการลาเรียบร้อยแล้ว");
+      setLeaveReason("");
+      setLeaveType("Sick");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ส่งคำขอลาไม่สำเร็จ");
+    } finally {
+      setLeaveSaving(false);
+    }
+  }
+
   function logout() {
     clearSession();
     router.replace("/login");
@@ -126,6 +164,7 @@ export default function CheckInPage() {
     : null;
   const isLate = data?.attendance?.status === "Late";
   const isAbsent = data?.attendance?.status === "Absent";
+  const isLeave = data?.attendance?.status === "Leave";
   const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const mapUrl = position
     ? mapsApiKey
@@ -155,28 +194,62 @@ export default function CheckInPage() {
         <div className="mb-8 text-center">
           <Badge className="mb-4 border-primary/20 bg-primary/10 text-primary"><CalendarDays className="mr-1.5 size-3.5" />{thaiDate(data?.date ?? today())}</Badge>
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">เช็กอินเข้าเรียน</h1>
-          <p className="mt-3 text-muted-foreground">ภายใน 08:30 = มา · หลัง 08:30 = สาย · ไม่เช็กอินภายในวัน = ขาดเรียน</p>
+          <p className="mt-3 text-muted-foreground">ภายใน 08:30 = มา · หลัง 08:30 = สาย · รอบวันใหม่เริ่มเวลา 03:00 น.</p>
         </div>
 
         {error && <Alert className="mx-auto mb-5 max-w-2xl border-red-200 bg-red-50 text-red-700"><AlertCircle className="absolute left-4 top-4 size-4" /><div className="pl-7"><AlertTitle>เกิดข้อผิดพลาด</AlertTitle><AlertDescription>{error}</AlertDescription></div></Alert>}
+        {leaveMessage && <Alert className="mx-auto mb-5 max-w-2xl border-emerald-200 bg-emerald-50 text-emerald-700"><CheckCircle2 className="absolute left-4 top-4 size-4" /><div className="pl-7"><AlertTitle>ส่งคำขอแล้ว</AlertTitle><AlertDescription>{leaveMessage}</AlertDescription></div></Alert>}
 
         <div className="mx-auto grid max-w-2xl gap-5">
-          <Card className="overflow-hidden border-0 shadow-[0_10px_40px_rgba(25,38,70,.1)]">
-            <div className={`h-1.5 ${data?.checkedIn ? isAbsent ? "bg-red-500" : isLate ? "bg-amber-500" : "bg-emerald-500" : "bg-primary"}`} />
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2"><FileText className="size-5 text-primary" />รายการที่ต้องการทำ</CardTitle>
+              <CardDescription>เลือกหัวข้อขออนุมัติลาเพื่อแสดงแบบฟอร์มการลา</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <Label htmlFor="requestTopic">หัวข้อ</Label>
+              <Select id="requestTopic" value={requestTopic} onChange={(event) => { setRequestTopic(event.target.value); setError(""); }} className="mt-2">
+                <option value="">เช็กอินเข้าเรียนตามปกติ</option>
+                <option value="leave">ขออนุมัติลา</option>
+              </Select>
+
+              {requestTopic === "leave" && (
+                <form onSubmit={submitLeaveRequest} className="mt-6 space-y-5 border-t pt-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="leaveType">ประเภทการลา</Label>
+                    <Select id="leaveType" value={leaveType} onChange={(event) => setLeaveType(event.target.value as LeaveType)} required>
+                      <option value="Sick">ลาป่วย</option>
+                      <option value="Personal">ลากิจ</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="leaveReason">เหตุผลการลา</Label>
+                    <textarea id="leaveReason" value={leaveReason} onChange={(event) => setLeaveReason(event.target.value)} rows={4} maxLength={500} required placeholder="กรุณาระบุรายละเอียดหรือเหตุผลการลา..." className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring" />
+                    <p className="text-right text-xs text-muted-foreground">{leaveReason.length}/500</p>
+                  </div>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs leading-5 text-blue-800">คำขอจะอยู่ในสถานะ “รออนุมัติ” จนกว่าผู้ดูแลระบบจะตรวจสอบ</div>
+                  <Button type="submit" className="w-full" disabled={leaveSaving || !leaveReason.trim()}>{leaveSaving ? <><Loader2 className="size-4 animate-spin" />กำลังส่งคำขอ...</> : <><Send className="size-4" />ส่งคำขออนุมัติลา</>}</Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+
+          {requestTopic !== "leave" && <Card className="overflow-hidden border-0 shadow-[0_10px_40px_rgba(25,38,70,.1)]">
+            <div className={`h-1.5 ${data?.checkedIn ? isLeave ? "bg-blue-500" : isAbsent ? "bg-red-500" : isLate ? "bg-amber-500" : "bg-emerald-500" : "bg-primary"}`} />
             <CardHeader className="items-center pb-3 text-center">
               {loading ? (
                 <div className="grid size-20 place-items-center rounded-full bg-muted"><Loader2 className="size-8 animate-spin text-primary" /></div>
               ) : data?.checkedIn ? (
-                <div className={`grid size-20 place-items-center rounded-full ${isAbsent ? "bg-red-100 text-red-600" : isLate ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"}`}><Check className="size-10" /></div>
+                <div className={`grid size-20 place-items-center rounded-full ${isLeave ? "bg-blue-100 text-blue-600" : isAbsent ? "bg-red-100 text-red-600" : isLate ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"}`}><Check className="size-10" /></div>
               ) : (
                 <div className="grid size-20 place-items-center rounded-full bg-primary/10 text-primary"><Clock3 className="size-9" /></div>
               )}
               <CardTitle className="pt-3 text-2xl">{data?.checkedIn ? "เช็กอินเรียบร้อยแล้ว" : "พร้อมเช็กอิน"}</CardTitle>
               <CardDescription>{data?.checkedIn ? `บันทึกเวลา ${checkInTime} น.` : now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Bangkok" }) + " น."}</CardDescription>
               {data?.checkedIn && (
-                <Badge className={isAbsent ? "mt-2 border-red-200 bg-red-50 text-red-700" : isLate ? "mt-2 border-amber-200 bg-amber-50 text-amber-700" : "mt-2 border-emerald-200 bg-emerald-50 text-emerald-700"}>
-                  {isLate || isAbsent ? <Clock3 className="mr-1.5 size-3.5" /> : <CheckCircle2 className="mr-1.5 size-3.5" />}
-                  {isAbsent ? "ขาดเรียน" : isLate ? "มาสาย" : "มาเรียน"}
+                <Badge className={isLeave ? "mt-2 border-blue-200 bg-blue-50 text-blue-700" : isAbsent ? "mt-2 border-red-200 bg-red-50 text-red-700" : isLate ? "mt-2 border-amber-200 bg-amber-50 text-amber-700" : "mt-2 border-emerald-200 bg-emerald-50 text-emerald-700"}>
+                  {isLeave ? <FileText className="mr-1.5 size-3.5" /> : isLate || isAbsent ? <Clock3 className="mr-1.5 size-3.5" /> : <CheckCircle2 className="mr-1.5 size-3.5" />}
+                  {isLeave ? "ลาเรียน" : isAbsent ? "ขาดเรียน" : isLate ? "มาสาย" : "มาเรียน"}
                 </Badge>
               )}
             </CardHeader>
@@ -190,17 +263,17 @@ export default function CheckInPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2"><CheckCircle2 className="size-4 text-emerald-600" />มาเรียน</span><strong>ไม่เกิน 08:30 น.</strong></div>
                   <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2"><Clock3 className="size-4 text-amber-600" />มาสาย</span><strong>หลัง 08:30 น.</strong></div>
-                  <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2"><AlertCircle className="size-4 text-red-600" />ขาดเรียน</span><strong>ไม่เช็กอินก่อน 00:00 น.</strong></div>
+                  <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2"><AlertCircle className="size-4 text-red-600" />ขาดเรียน</span><strong>ไม่เช็กอินก่อน 03:00 น.</strong></div>
                 </div>
               </div>
-              <Button className={`h-14 w-full text-base ${data?.checkedIn ? isAbsent ? "bg-red-600 hover:bg-red-600" : isLate ? "bg-amber-600 hover:bg-amber-600" : "bg-emerald-600 hover:bg-emerald-600" : ""}`} disabled={loading || saving || data?.checkedIn} onClick={checkIn}>
+              <Button className={`h-14 w-full text-base ${data?.checkedIn ? isLeave ? "bg-blue-600 hover:bg-blue-600" : isAbsent ? "bg-red-600 hover:bg-red-600" : isLate ? "bg-amber-600 hover:bg-amber-600" : "bg-emerald-600 hover:bg-emerald-600" : ""}`} disabled={loading || saving || data?.checkedIn} onClick={checkIn}>
                 {saving ? <><Loader2 className="size-5 animate-spin" />กำลังเช็กอิน...</> : data?.checkedIn ? <><CheckCircle2 className="size-5" />เช็กอินวันนี้แล้ว</> : <><MapPin className="size-5" />เช็กอินเข้าเรียน</>}
               </Button>
               <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground"><ShieldCheck className="size-3.5" />เวลาตัดสินสถานะอ้างอิงจากเวลาเซิร์ฟเวอร์ประเทศไทย</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card className="overflow-hidden">
+          {requestTopic !== "leave" && <Card className="overflow-hidden">
             <CardHeader className="flex-row items-center justify-between border-b">
               <div><CardTitle className="flex items-center gap-2"><MapPin className="size-5 text-primary" />ตำแหน่งปัจจุบัน</CardTitle><CardDescription className="mt-2">แสดงตำแหน่งจากอุปกรณ์บน Google Maps</CardDescription></div>
               <Button variant="outline" size="sm" onClick={requestLocation} disabled={locationLoading}><LocateFixed className={locationLoading ? "size-4 animate-pulse" : "size-4"} />ค้นหาตำแหน่ง</Button>
@@ -220,7 +293,7 @@ export default function CheckInPage() {
                 </>
               ) : null}
             </CardContent>
-          </Card>
+          </Card>}
         </div>
       </div>
     </main>
